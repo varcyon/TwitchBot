@@ -1,4 +1,5 @@
 #include <vector>
+#include <iostream>
 #include "TwichSocket.h"
 
 namespace TwitchBot {
@@ -6,7 +7,12 @@ namespace TwitchBot {
 		int TwitchSocket::send(const string& information) {
 			return ::send(connection, information.c_str(), information.length(), NULL);
 		}
-
+		void TwitchSocket::SendToChannel(const string& channel, const string& user , const string& message) {
+				send("PRIVMSG #" + channel + " :" + message+ "\r\n");
+		}
+		void TwitchSocket::SendToChannel(const string& channel,  const string& message) {
+			send("PRIVMSG #" + channel + " :" + message + "\r\n");
+		}
 		string TwitchSocket:: receive() {
 			int bytesReceived = recv(connection, buffer.data(), BufferLength, NULL);
 			if (bytesReceived < 0) { return ""; }
@@ -18,7 +24,7 @@ namespace TwitchBot {
 			this->buffer = vector<char>(BufferLength);
 			send("PASS " + oAuthToken + "\r\n");
 			send("NICK " + username + "\r\n");
-			(void)receive();
+			receive();
 
 		}
 	};

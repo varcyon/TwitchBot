@@ -21,8 +21,8 @@ using namespace TwitchBot;
 		SOCKET ConnectionSocket = INVALID_SOCKET;
 		addrinfo hints{};
 		addrinfo* result;
-
-
+		string botName = "varcyonsariougames";
+		string channel = "varcy0n";
 		if (authFile.is_open()) {
 			getline(authFile, OAuthToken, '\n');
 			authFile.close();
@@ -31,16 +31,15 @@ using namespace TwitchBot;
 		CreateWebSocket(wsaData, hints, result, ConnectionSocket);
 
 		//Connects to the bot to Twitch
-		TwitchBot::TwitchSocket twitch(OAuthToken, "varcyonsariougames", ConnectionSocket);
+		TwitchBot::TwitchSocket twitch(OAuthToken, botName, ConnectionSocket);
 
 		//Joins the channel
 		twitch.send("JOIN #varcy0n\r\n");
-		(void)twitch.receive();
+	//	cout << twitch.receive() << endl;
 
 		//Plays this sound once its connected
 		PlaySound("Sounds/borg_computer_beep.wav", NULL, SND_FILENAME);
 		cout << "Bot connected!" << endl;
-
 		regex re("!(.+)@.+PRIVMSG #([^\\s]+) :(.*)");
 		smatch match;
 		
@@ -48,10 +47,12 @@ using namespace TwitchBot;
 		chrono::time_point<chrono::system_clock> lastCommand;
 		lastCommand = clock.now() - chrono::seconds(30); /// 30 delay
 
-		if (clock.now() - lastCommand >= chrono::seconds(30)) {
-			//do something
-			lastCommand = clock.now();
-		}
+		//if (clock.now() - lastCommand >= chrono::seconds(30)) {
+		//	//do something
+		//	lastCommand = clock.now();
+		//}
+
+		twitch.SendToChannel(channel, "Resistance is futile!");
 
 		bool running = true;
 		while (running)
@@ -68,6 +69,22 @@ using namespace TwitchBot;
 			string message = match[3];
 			if (user != "" || channel != "" || message != "") {
 				cout << "Channel: " << channel << endl << "User: " << user << endl << "Message: " << message << endl;
+			}
+
+			if (message == "!Computer") {
+				if (clock.now() - lastCommand >= chrono::seconds(30)) {
+					//do something
+					PlaySound("Sounds/borg_computer_beep.wav", NULL, SND_FILENAME);
+					lastCommand = clock.now();
+				}
+				else {
+					twitch.SendToChannel(channel, "Command is on cool down!");
+				}
+
+			}
+
+			if (message == "!Hello") {
+				twitch.SendToChannel(channel, user, "Hello " + user + "!");
 			}
 		}
 		return 0;

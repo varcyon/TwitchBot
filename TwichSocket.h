@@ -13,6 +13,8 @@ namespace TwitchBot {
 		SOCKET connection;
 	public:
 		int send(const string& information);
+		void SendToChannel(const string& channel, const string& user, const string& message);
+		void SendToChannel(const string& channel, const string& message);
 		string receive();
 		TwitchSocket(string oAuthToken, string username, SOCKET connection);
 		TwitchSocket(const TwitchSocket&) = delete;

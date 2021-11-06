@@ -2,6 +2,7 @@
 #include <Windows.h>
 #include <vector>
 #include <string>
+#include <functional>
 namespace TwitchBot {
 	using namespace std;
 
@@ -12,12 +13,13 @@ namespace TwitchBot {
 		vector<char> buffer = vector<char>(BufferLength);
 		SOCKET connection;
 	public:
-		int send(const string& information);
-		void SendToChannel(const string& channel, const string& user, const string& message);
-		void SendToChannel(const string& channel, const string& message);
-		string receive();
-		TwitchSocket(string oAuthToken, string username, SOCKET connection);
 		TwitchSocket(const TwitchSocket&) = delete;
 		TwitchSocket& operator=(const TwitchSocket&) = delete;
+		TwitchSocket(string oAuthToken, string username, SOCKET connection);
+		string receive();
+		int send(const string& information);
+		void SendToMessageChannel(const string& channel, const string& user, const string& message);
+		void SendToMessageChannel(const string& channel, const string& message);
+		function<int(const string&)> SendToChannel(const string& channel);
 	};
 }

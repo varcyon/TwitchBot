@@ -13,7 +13,8 @@
 #pragma comment(lib, "Winmm.lib")
 using namespace TwitchBot;
 
-	
+int CreateWebSocket(WSADATA& wsaData, addrinfo& hints, addrinfo*& result, SOCKET& ConnectionSocket);
+
 	int main() {
 		fstream authFile("TwitchAuth.txt");
 		string OAuthToken;
@@ -34,7 +35,7 @@ using namespace TwitchBot;
 		TwitchBot::TwitchSocket twitch(OAuthToken, botName, ConnectionSocket);
 
 		//Joins the channel
-		twitch.send("JOIN #varcy0n\r\n");
+		twitch.send("JOIN #"+channel+"\r\n");
 	//	cout << twitch.receive() << endl;
 
 		//Plays this sound once its connected
@@ -51,8 +52,9 @@ using namespace TwitchBot;
 		//	//do something
 		//	lastCommand = clock.now();
 		//}
-
-		twitch.SendToChannel(channel, "Resistance is futile!");
+		auto sendMsg = twitch.SendToChannel(channel);
+		sendMsg("Resistance is futile!");
+		//twitch.SendToMessageChannel(channel, "Resistance is futile!");
 
 		bool running = true;
 		while (running)
@@ -78,13 +80,13 @@ using namespace TwitchBot;
 					lastCommand = clock.now();
 				}
 				else {
-					twitch.SendToChannel(channel, "Command is on cool down!");
+					twitch.SendToMessageChannel(channel, "Command is on cool down!");
 				}
 
 			}
 
 			if (message == "!Hello") {
-				twitch.SendToChannel(channel, user, "Hello " + user + "!");
+				twitch.SendToMessageChannel(channel, user, "Hello " + user + "!");
 			}
 		}
 		return 0;

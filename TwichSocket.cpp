@@ -7,11 +7,16 @@ namespace TwitchBot {
 		int TwitchSocket::send(const string& information) {
 			return ::send(connection, information.c_str(), information.length(), NULL);
 		}
-		void TwitchSocket::SendToChannel(const string& channel, const string& user , const string& message) {
+		void TwitchSocket::SendToMessageChannel(const string& channel, const string& user , const string& message) {
 				send("PRIVMSG #" + channel + " :" + message+ "\r\n");
 		}
-		void TwitchSocket::SendToChannel(const string& channel,  const string& message) {
+		void TwitchSocket::SendToMessageChannel(const string& channel,  const string& message) {
 			send("PRIVMSG #" + channel + " :" + message + "\r\n");
+		}
+		function<int(const string&)> TwitchSocket::SendToChannel(const string& channel) {
+			return [=](const string& message) {
+				return this->send("PRIVMSG #" + channel + " :" + message + "\r\n");
+			};
 		}
 		string TwitchSocket:: receive() {
 			int bytesReceived = recv(connection, buffer.data(), BufferLength, NULL);

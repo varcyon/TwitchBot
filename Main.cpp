@@ -8,7 +8,7 @@
 #include <regex>
 #include <chrono>
 #include "TwichSocket.h"
-#include "Main.h"
+#include <sstream>
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "Winmm.lib")
 using namespace TwitchBot;
@@ -36,6 +36,7 @@ int CreateWebSocket(WSADATA& wsaData, addrinfo& hints, addrinfo*& result, SOCKET
 
 		//Joins the channel
 		twitch.send("JOIN #"+channel+"\r\n");
+		twitch.send("CAP REQ :twitch.tv/tags\r\n");
 	//	cout << twitch.receive() << endl;
 
 		//Plays this sound once its connected
@@ -57,15 +58,18 @@ int CreateWebSocket(WSADATA& wsaData, addrinfo& hints, addrinfo*& result, SOCKET
 		//twitch.SendToMessageChannel(channel, "Resistance is futile!");
 
 		bool running = true;
+
 		while (running)
 		{
 			//if (GetAsyncKeyState('Q') & 0x8000) {
 			//	running = false;
 			//}
 			string received = twitch.receive();
+		//	cout << received << endl;
 			//Parse Message
 			//:varcy0n!varcy0n@varcy0n.tmi.twitch.tv PRIVMSG #varcy0n :Testing
 			regex_search(received, match, re);
+			cout << received << flush;
 			string user = match[1];
 			string channel = match[2];
 			string message = match[3];
@@ -73,20 +77,42 @@ int CreateWebSocket(WSADATA& wsaData, addrinfo& hints, addrinfo*& result, SOCKET
 				cout << "Channel: " << channel << endl << "User: " << user << endl << "Message: " << message << endl;
 			}
 
-			if (message == "!Computer") {
-				if (clock.now() - lastCommand >= chrono::seconds(30)) {
-					//do something
-					PlaySound("Sounds/borg_computer_beep.wav", NULL, SND_FILENAME);
-					lastCommand = clock.now();
-				}
-				else {
-					twitch.SendToMessageChannel(channel, "Command is on cool down!");
-				}
-
+			stringstream ss(message);
+			vector<string> args;
+			for (string s; ss >> s;)
+			{
+				args.push_back(s);
 			}
+			if (args.size() > 0) {
 
-			if (message == "!Hello") {
-				twitch.SendToMessageChannel(channel, user, "Hello " + user + "!");
+				if (args[0] == "!Computer") {
+					if (clock.now() - lastCommand >= chrono::seconds(30)) {
+						//do something
+						PlaySound("Sounds/borg_computer_beep.wav", NULL, SND_FILENAME);
+						lastCommand = clock.now();
+					}
+					else {
+						twitch.SendToMessageChannel(channel, "Command is on cool down!");
+					}
+				}
+
+				if (args[0] == "!Hello") {
+					twitch.SendToMessageChannel(channel, user, "Hello " + user + "!");
+				}
+				if (args[0] == "!so") {
+						sendMsg("Shout out to our boy " + args[1]);
+				}
+
+				//EXAMPLE OF NEEDING MULTIPLE ARUGEMENTS
+				//if (args[0] == "!so") {
+				//	if (args.size() <= 2) {
+				//		sendMsg("!so requires 2 arguments");
+				//	}
+				//	else {
+				//	sendMsg("Shout out to our boy " + args[1] + " Secret word is "+  args[2]);
+				//	}
+				//	
+				//}
 			}
 		}
 		return 0;

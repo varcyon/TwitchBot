@@ -1,0 +1,18 @@
+@badge-info=;
+badges=broadcaster/1,premium/1;
+client-nonce=01a6b77de411878b578f91df7fbdf794;
+color=#3B48DC;
+display-name=Varcy0n;
+emotes=;
+first-msg=0;
+flags=;
+id=0fd12eb1-b141-4929-b650-3e06acb9eb7e;
+mod=0;
+room-id=37078197;
+subscriber=0;
+tmi-sent-ts=1636254151282;
+turbo=0;
+user-id=37078197;
+user-type= 
+
+:varcy0n!varcy0n@varcy0n.tmi.twitch.tv PRIVMSG #varcy0n :hi

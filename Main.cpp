@@ -1,3 +1,4 @@
+#include "PCH.h"
 #include <Winsock2.h>
 #include <ws2tcpip.h>
 #include <Windows.h>
@@ -5,17 +6,94 @@
 #include <fstream>
 #include <string>
 #include <vector>
-#include <regex>
 #include <chrono>
+#include <map>
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include "Parser.h"
 #include "TwichSocket.h"
-#include <sstream>
+#include <sqlite3.h>
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "Winmm.lib")
+
+using namespace std;
 using namespace TwitchBot;
 
-int CreateWebSocket(WSADATA& wsaData, addrinfo& hints, addrinfo*& result, SOCKET& ConnectionSocket);
 
-	int main() {
+//Methods
+int CreateWebSocket(WSADATA& wsaData, addrinfo& hints, addrinfo*& result, SOCKET& ConnectionSocket)
+{
+	//socket stuff
+	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+		cout << "Startup Failed" << endl;
+		return 1;
+	}
+
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+
+	if (getaddrinfo("irc.chat.twitch.tv", "6667", &hints, &result) != 0) {
+		cout << "getaddrinfo failed: <RETURN CODE PASSED>" << endl;
+		return 1;
+	}
+
+	ConnectionSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+	if (ConnectionSocket == INVALID_SOCKET) {
+		cout << "ERROR at socket(): " << WSAGetLastError() << endl;
+		freeaddrinfo(result);
+		WSACleanup();
+		return 1;
+	}
+
+	if (connect(ConnectionSocket, result->ai_addr, result->ai_addrlen) == SOCKET_ERROR) {
+		closesocket(ConnectionSocket);
+		ConnectionSocket = INVALID_SOCKET;
+		return 1;
+	}
+
+	freeaddrinfo(result);
+
+	if (ConnectionSocket == INVALID_SOCKET) {
+		cout << "Cannot connect to server" << endl;
+		WSACleanup();
+		return 1;
+	}
+	return 0;
+	// End socket
+}
+
+vector<string> ParseMsgForArgs( string& args) {
+	vector<string> results;
+	args.erase(remove(args.begin(), args.end(), '\r'), args.end());
+	args.erase(remove(args.begin(), args.end(), '\n'), args.end());
+	boost:algorithm:split(results, args, boost::algorithm::is_any_of(" "));
+	return results;
+}
+
+bool isModerator(  UserAttributes& attributes) {
+	if (attributes["display-name"] == "Varcy0n") {
+		return true;
+	}
+	auto m = attributes["user-type"];
+	m.erase(remove(m.begin(), m.end(), ' '), m.end());
+	if (m == "mod") {
+		return true;
+	}
+	return false;
+}
+
+bool bot_command(const string& commandName, const string& command,  vector<string>* argsList) {
+	size_t split = commandName.length() + 1;
+	if (command.substr(0, split) == commandName + " ") {
+		string argString = command.substr(split);
+		*argsList = ParseMsgForArgs((argString));
+		return true;
+	}
+	return false;
+}
+
+int main() {
 		fstream authFile("TwitchAuth.txt");
 		string OAuthToken;
 		WSADATA wsaData;
@@ -37,125 +115,83 @@ int CreateWebSocket(WSADATA& wsaData, addrinfo& hints, addrinfo*& result, SOCKET
 		//Joins the channel
 		twitch.send("JOIN #"+channel+"\r\n");
 		twitch.send("CAP REQ :twitch.tv/tags\r\n");
-	//	cout << twitch.receive() << endl;
 
 		//Plays this sound once its connected
 		PlaySound("Sounds/borg_computer_beep.wav", NULL, SND_FILENAME);
 		cout << "Bot connected!" << endl;
-		regex re("!(.+)@.+PRIVMSG #([^\\s]+) :(.*)");
-		smatch match;
 		
 		chrono::system_clock clock;
 		chrono::time_point<chrono::system_clock> lastCommand;
 		lastCommand = clock.now() - chrono::seconds(30); /// 30 delay
 
-		//if (clock.now() - lastCommand >= chrono::seconds(30)) {
-		//	//do something
-		//	lastCommand = clock.now();
-		//}
 		auto sendMsg = twitch.SendToChannel(channel);
 		sendMsg("Resistance is futile!");
-		//twitch.SendToMessageChannel(channel, "Resistance is futile!");
 
 		bool running = true;
 
+		vector<string> commandArgs;
+		map<string, string> commands;
+		sqlite3** db_handle;
+
 		while (running)
 		{
-			//if (GetAsyncKeyState('Q') & 0x8000) {
-			//	running = false;
-			//}
-			string received = twitch.receive();
-		//	cout << received << endl;
-			//Parse Message
-			//:varcy0n!varcy0n@varcy0n.tmi.twitch.tv PRIVMSG #varcy0n :Testing
-			regex_search(received, match, re);
-			cout << received << flush;
-			string user = match[1];
-			string channel = match[2];
-			string message = match[3];
-			if (user != "" || channel != "" || message != "") {
-				cout << "Channel: " << channel << endl << "User: " << user << endl << "Message: " << message << endl;
-			}
-
-			stringstream ss(message);
-			vector<string> args;
-			for (string s; ss >> s;)
-			{
-				args.push_back(s);
-			}
-			if (args.size() > 0) {
-
-				if (args[0] == "!Computer") {
+			string receive = twitch.receive();
+			TwitchMessage twitchMessage =  ParseTwitchMessage(receive);
+				//checks if the message was empty and if not then checks if the first char is a "!" 
+				//signaling that its a command
+				//runs through the commands map for match
+				//sends the message stored in commands if the match was found
+				cout << twitchMessage.userName << ": " << twitchMessage.body << endl;
+				if (twitchMessage.body == "!Computer" && isModerator(twitchMessage.attributes)) {
 					if (clock.now() - lastCommand >= chrono::seconds(30)) {
-						//do something
 						PlaySound("Sounds/borg_computer_beep.wav", NULL, SND_FILENAME);
 						lastCommand = clock.now();
 					}
 					else {
-						twitch.SendToMessageChannel(channel, "Command is on cool down!");
+						sendMsg( "Command is on cool down!");
 					}
 				}
 
-				if (args[0] == "!Hello") {
-					twitch.SendToMessageChannel(channel, user, "Hello " + user + "!");
-				}
-				if (args[0] == "!so") {
-						sendMsg("Shout out to our boy " + args[1]);
+				if (twitchMessage.body == "!Hello") {
+					sendMsg( "Hello " + twitchMessage.userName + "!");
 				}
 
-				//EXAMPLE OF NEEDING MULTIPLE ARUGEMENTS
-				//if (args[0] == "!so") {
-				//	if (args.size() <= 2) {
-				//		sendMsg("!so requires 2 arguments");
-				//	}
-				//	else {
-				//	sendMsg("Shout out to our boy " + args[1] + " Secret word is "+  args[2]);
-				//	}
-				//	
-				//}
-			}
+				if (bot_command("!so", twitchMessage.body, &commandArgs)) {
+						sendMsg("Shout out to our boy " + commandArgs[0]);
+				}
+
+				if (isModerator(twitchMessage.attributes) && bot_command("!addcom", twitchMessage.body, &commandArgs)) {
+					string commandName = commandArgs[0];
+					string commandBody = twitchMessage.body.substr(8 + commandName.length() + 1);
+					commands[commandName] = commandBody;
+					auto command = commands.find(commandName);
+					if (command != commands.end()) {
+						sendMsg("Command " + commandName + " has been added!");
+						//cout << command->first << endl << command->second << endl;
+						for (const auto& command : commands) {
+							cout << command.first << endl << command.second << endl;
+						}
+					}
+				}
+				if (!twitchMessage.body.empty() && twitchMessage.body.front() == '!') {
+					string commandNameTemp = twitchMessage.body.substr(1);
+					commandNameTemp.erase(remove(commandNameTemp.begin(), commandNameTemp.end(), '\r'), commandNameTemp.end());
+					commandNameTemp.erase(remove(commandNameTemp.begin(), commandNameTemp.end(), '\n'), commandNameTemp.end());
+					cout << commandNameTemp << endl;
+					auto command = commands.find(commandNameTemp);
+					if (command != commands.end()) {
+						sendMsg(command->second);
+					}
+					else {
+						cout << "Command: " + twitchMessage.body.substr(1) + " not found!" << endl;
+					}
+				}
+
+
 		}
 		return 0;
 	}
 
-	int CreateWebSocket(WSADATA& wsaData, addrinfo& hints, addrinfo*& result, SOCKET& ConnectionSocket)
-	{
-		//socket stuff
-		if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-			cout << "Startup Failed" << endl;
-			return 1;
-		}
-
-		hints.ai_family = AF_UNSPEC;
-		hints.ai_socktype = SOCK_STREAM;
-		hints.ai_protocol = IPPROTO_TCP;
-
-		if (getaddrinfo("irc.chat.twitch.tv", "6667", &hints, &result) != 0) {
-			cout << "getaddrinfo failed: <RETURN CODE PASSED>" << endl;
-		}
-
-		ConnectionSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
-		if (ConnectionSocket == INVALID_SOCKET) {
-			cout << "ERROR at socket(): " << WSAGetLastError() << endl;
-			freeaddrinfo(result);
-			WSACleanup();
-			return 1;
-		}
-
-		if (connect(ConnectionSocket, result->ai_addr, result->ai_addrlen) == SOCKET_ERROR) {
-			closesocket(ConnectionSocket);
-			ConnectionSocket = INVALID_SOCKET;
-		}
-
-		freeaddrinfo(result);
-
-		if (ConnectionSocket == INVALID_SOCKET) {
-			cout << "Cannot connect to server" << endl;
-			WSACleanup();
-			return 1;
-		}
-		// End socket
-	}
 
 
 

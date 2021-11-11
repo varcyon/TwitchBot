@@ -19,6 +19,8 @@
 using namespace std;
 using namespace TwitchBot;
 
+//GLOBAL VARIABLES
+map<string, string> commands;
 
 //Methods
 int CreateWebSocket(WSADATA& wsaData, addrinfo& hints, addrinfo*& result, SOCKET& ConnectionSocket)
@@ -93,7 +95,77 @@ bool bot_command(const string& commandName, const string& command,  vector<strin
 	return false;
 }
 
+void CreateDB(const char* dir) {
+	
+	sqlite3* DB;
+	int exit = 0;
+	exit = sqlite3_open(dir, &DB);
+
+	if (exit) {
+		std::cerr << "Error open DB " << sqlite3_errmsg(DB) << std::endl;
+	}
+	else
+		std::cout << "Opened Database Successfully!" << std::endl;
+	sqlite3_close(DB);
+}
+
+void CreateTable(const char* dir) {
+	sqlite3* DB;
+	std::string sql = "CREATE TABLE IF NOT EXISTS COMMANDS("
+		"ID INT PRIMARY KEY NOT NULL, "
+		"commandName TEXT NOT NULL, "
+		"commandResponse TEXT NOT NULL); ";
+
+	int exit = 0;
+	exit = sqlite3_open(dir, &DB);
+	char* messaggeError;
+	exit = sqlite3_exec(DB, sql.c_str(), NULL, 0, &messaggeError);
+
+	if (exit != SQLITE_OK) {
+		std::cerr << "Error Create Table" << std::endl;
+		sqlite3_free(messaggeError);
+	}
+	else
+		std::cout << "Table created Successfully" << std::endl;
+	sqlite3_close(DB);
+}
+static int SelectCommandscallback(void* data, int argc, char** argv, char** azColName)
+{
+	for (int i = 0; i < argc; i++)
+	{
+		cout << azColName[i] << ": " << argv[i] << endl;
+	}
+	cout << endl;
+	commands[argv[1]] = argv[2];
+	return 0;
+}
+void SelectCommands(const char* dir) {
+	sqlite3* DB;
+	int exit = 0;
+	exit = sqlite3_open(dir, &DB);
+
+	string sql("SELECT * FROM COMMANDS;");
+	if (exit) {
+		std::cerr << "Error open DB " << sqlite3_errmsg(DB) << std::endl;
+	}
+	else
+		std::cout << "Opened Database Successfully!" << std::endl;
+
+	int rc = sqlite3_exec(DB, sql.c_str(), SelectCommandscallback, NULL, NULL);
+
+	if (rc != SQLITE_OK)
+		cerr << "Error SELECT" << endl;
+	else {
+		cout << "Operation OK!" << endl;
+	}
+
+	sqlite3_close(DB);
+}
 int main() {
+	const char* dir = "Assets/TwitchBot.db";
+	CreateDB(dir);
+	CreateTable(dir);
+	SelectCommands(dir);
 		fstream authFile("TwitchAuth.txt");
 		string OAuthToken;
 		WSADATA wsaData;
@@ -130,8 +202,6 @@ int main() {
 		bool running = true;
 
 		vector<string> commandArgs;
-		map<string, string> commands;
-		sqlite3** db_handle;
 
 		while (running)
 		{
